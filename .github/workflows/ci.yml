@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Installation
+        run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Tests
+        run: pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build de l'image
+        run: docker build -t docmind:ci .
+      - name: Test de démarrage
+        run: |
+          docker run -d --name docmind -p 8000:8000 docmind:ci
+          for i in $(seq 1 20); do curl -sf http://localhost:8000/health && exit 0; sleep 1; done
+          docker logs docmind; exit 1
